@@ -44,7 +44,8 @@ convert_android_img()
 		simg2img $SYSIMG $WORKDIR/system.img.raw
 		mkdir $TMPMOUNT
 		mount -t ext4 -o loop $WORKDIR/system.img.raw $TMPMOUNT
-		make_ext4fs -l 160M $WORKDIR/system.img $TMPMOUNT
+		IMAGE_SIZE=`wc -c < $SYSIMG`
+		make_ext4fs -l $IMAGE_SIZE $WORKDIR/system.img $TMPMOUNT
 		SYSIMAGE=$WORKDIR/system.img
 	else
 		SYSIMAGE=$SYSIMG
@@ -53,8 +54,8 @@ convert_android_img()
 
 check_mounts(){
 	MOUNTS=$(do_shell "cat /proc/mounts")
-	if ! echo $MOUNTS | grep -qs '/cache'; then
-		do_shell "mount /cache"
+	if ! echo $MOUNTS | grep -qs '/data/recovery'; then
+		do_shell "mount /data/recovery"
 	fi
 	if ! echo $MOUNTS | grep -qs '/data'; then
 		do_shell "mount /data"
@@ -67,8 +68,8 @@ prepare_halium_system()
 	do_shell "rm -f /data/rootfs.img"
 	do_shell "dd if=/dev/zero of=/data/rootfs.img seek=500K bs=4096 count=0"
 	do_shell "mkfs.ext2 -F /data/rootfs.img"
-	do_shell "mkdir -p /cache/system"
-	do_shell "mount -o loop /data/rootfs.img /cache/system/"
+	do_shell "mkdir -p /data/recovery/system"
+	do_shell "mount -o loop /data/rootfs.img /data/recovery/system/"
 }
 
 cleanup()
@@ -84,8 +85,9 @@ cleanup()
 cleanup_device()
 {
 	[ -e $WORKDIR/device-clean ] && return
-	do_shell "umount /cache/system/ && rm -rf /cache/system"
-	do_shell "rm -f /recovery/$TARBALL"
+	do_shell "umount /data/recovery/system/ && rm -rf /data/recovery"
+	do_shell "rm -f /data/$TARBALL"
+	do_shell "sync"
 	[ -e $WORKDIR ] && touch $WORKDIR/device-clean 2>/dev/null || true
 }
 
@@ -171,13 +173,13 @@ WORKDIR=$(mktemp -d /tmp/halium-install.XXXXX)
 TMPMOUNT="$WORKDIR/tmpmount"
 
 echo "transfering rootfs tarball ... "
-adb push $TARPATH /recovery/
+adb push $TARPATH /data/
 echo "[done]"
 
 if [ ! -z "$CUST_TARPATH" ]; then
 	CUST_TARBALL=$(basename $CUST_TARPATH)
 	echo  -n "transferring custom tarball"
-	adb push $CUST_TARPATH /recovery/
+	adb push $CUST_TARPATH /data/
 	echo "[done]"
 fi
 
@@ -186,8 +188,8 @@ prepare_halium_system
 echo "[done]"
 
 echo -n "unpacking rootfs tarball to system-image ... "
-do_shell "cd /cache/system && zcat /recovery/$TARBALL | tar xf -"
-do_shell "[ -e /cache/system/SWAP.swap ] && mv /cache/system/SWAP.swap /data/SWAP.img"
+do_shell "cd /data/recovery/system && tar xf /data/$TARBALL"
+do_shell "[ -e /data/recovery/system/SWAP.swap ] && mv /data/recovery/system/SWAP.swap /data/SWAP.img"
 echo "[done]"
 
 echo -n "adding android system image to installation ... "
