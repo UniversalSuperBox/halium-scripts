@@ -54,8 +54,8 @@ convert_android_img()
 
 check_mounts(){
 	MOUNTS=$(do_shell "cat /proc/mounts")
-	if ! echo $MOUNTS | grep -qs '/data/recovery'; then
-		do_shell "mount /data/recovery"
+	if ! echo $MOUNTS | grep -qs '/cache'; then
+		do_shell "mount /cache"
 	fi
 	if ! echo $MOUNTS | grep -qs '/data'; then
 		do_shell "mount /data"
